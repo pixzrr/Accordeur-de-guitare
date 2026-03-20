@@ -1,0 +1,190 @@
+/*
+ * P-Acc_PORT-DIAL-TP2.c
+ *
+ * Created: 13/03/2026 14:22:45
+ * Author : 45018569
+ */ 
+
+#define F_CPU 3686000UL
+
+
+#include <avr/io.h>
+#include <stdio.h>
+#include <util/delay.h>
+
+
+// ----- Define des constantes de fonction ----- //
+
+#define CLEAR_DISPLAY				0x01
+
+#define RETURN_HOME				0x02
+
+#define ENTRY_MODE_SET			0x04
+	#define INCREMENT				0x02
+	#define DECREMENT				0x00
+	#define ENTIRE_SHIFT_ON			0x01
+	#define ENTIRE_SHIFT_OFF		0x00
+	
+#define DISPLAY_ON_OFF_CONTROL	0x08
+	#define DISPLAY_OFF				0x00
+	#define DISPLAY_ON				0x04
+	#define CURSOR_OFF				0x00
+	#define CURSOR_ON				0x02
+	#define BLINK_OFF				0x00
+	#define BLINK_ON				0x01
+	
+#define FUNCTION_SET			0x30
+	#define _1_LINE_MODE			0x00
+	#define _2_LINE_MODE			0x08
+	#define _5x8_DOTS				0x00
+	#define _5x11_DOTS				0x04
+	
+#define LIGNE1					0x80
+#define LIGNE2					(0x80 | 0x40)
+
+#define E						0x00 // Autoriser l'envoi de la donnée (0 si on ne veut rien envoyer, 1 si on veut envoyer une donnée
+#define RW						0x01 // Ecrire ou lire la donnée (0 pour envoyer, 1 pour lire) - bit 1 du port c
+#define RS						0x02 // Savoir quelle donnee est echangée (RS = 0 si commande ou 1 si c'est un caractère) - bit 2 du port c
+
+
+		// ----- Liste des fonctions ----- //
+		
+void LCD_init(void);
+void LCD_sendcmd(char cmd);
+void LCD_putchar(char c);
+
+int LCD_putchars(char c, FILE *STREAM);
+FILE donnee = FDEV_SETUP_STREAM(LCD_putchars, NULL, _FDEV_SETUP_WRITE); // on crée une variable de type FILE* (donc un nouvequ canal / nouvelle liaison) et on lui dit "Les écritures se font dans le canal LCD_putchars (où on retrouve la procédure d'envoi de donnée)
+
+void tests_unitaires(void);
+
+
+
+// ------------------------------------------------------ Main ------------------------------------------------------------- //
+// ------------------------------------------------------------------------------------------------------------------------- //
+
+void main(void) {
+	// ___Setup___ //			// (le port C sert à envoyer des instructions d'envoi / lecture et le port A sert à envoyer la donnée)
+	DDRA = 0xFF;
+	DDRC = 0xFF;
+	
+	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
+	
+	LCD_init();
+	
+	tests_unitaires();
+	
+    while (1) 
+    {
+    }
+}
+
+// ------------------------------------------------------------------------------------------------------------------------- //
+// ------------------------------------------------------------------------------------------------------------------------- //
+
+
+
+		// ----- Initialisation du LCD ----- //
+		
+void LCD_init(void) { // On se sert ici de la page 5 de la partie datasheet
+	
+	_delay_ms(100);
+	
+	LCD_sendcmd(FUNCTION_SET | _2_LINE_MODE | _5x8_DOTS); // On veut un écrant avec 5x8 points par caractère et 2 lignes pour afficher les caractères
+	_delay_us(39);
+	
+	LCD_sendcmd(DISPLAY_ON_OFF_CONTROL | DISPLAY_ON | CURSOR_ON | BLINK_ON); // Pour CURSOR_ON on pourra mettre CURSOR_OFF quand la partie numérique sera terminée, pareil pour le blink
+	_delay_us(39);
+	
+	LCD_sendcmd(CLEAR_DISPLAY); // On nettoie l'écran
+	_delay_ms(2);
+	
+	LCD_sendcmd(ENTRY_MODE_SET | INCREMENT | ENTIRE_SHIFT_OFF); // Increment = ecrire de gauche à droite
+	_delay_us(39);
+}
+
+
+
+
+		// ----- Envoyer une commande ----- //
+
+void LCD_sendcmd(char cmd) {
+	PORTC = 0x00;						// On met RS et RW à 0 car on envoie une commande
+	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
+									// On laisse le bit E du port c à 0 car on envoie une commande
+	PORTA = cmd;						// On envoi la donnée sur le port A
+	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
+	_delay_us(43);						// on attend le temps que l'écriture se termine
+}
+
+
+
+
+		// ----- Envoyer un caractère ----- //
+
+void LCD_putchar(char c) {
+	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie une commande
+	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
+								// On laisse le bit E du port c à 0 car on envoie une commande
+	PORTA = c;							// On envoi la donnée sur le port A
+	
+	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
+	
+	_delay_ms(1.573);						// on attend le temps que l'écriture se termine + le temps d'éxectution de la commande la plus lente (donc 43us + 1.53ms)
+}
+
+
+
+
+		// ----- Envoyer une chaine de caractères ----- //
+
+int LCD_putchars(char c, FILE *stream) {
+	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie une commande
+	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
+	// On laisse le bit E du port c à 0 car on envoie une commande
+	PORTA = c;							// On envoi la donnée sur le port A
+	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
+	
+	
+	_delay_us(43);
+	return 01; // 01 sera le code pour annoncer que la donnée a été envoyé
+}
+
+
+
+	
+
+		// ----- Envoyer une chaine de caractères ----- //
+
+void tests_unitaires(void) {
+	
+	unsigned char caractere = 65; // 65 = A en code asquii
+	
+	LCD_init();
+	
+	while (caractere <= 90) { // 90 = Z en code asquii
+		if (caractere == 'Q') LCD_sendcmd(LIGNE2); // Juste après la 16e lettre de l'aplhabet, on passe à la ligne (le lcd peut afficher jusqu'à 16 lettres par ligne)
+		LCD_putchar(caractere);
+		caractere++;
+		_delay_ms(500);
+	}
+	LCD_sendcmd(CLEAR_DISPLAY);
+	LCD_sendcmd(RETURN_HOME);
+	_delay_ms(1000);
+	
+	printf("Accordeur 20226");
+	LCD_sendcmd(CLEAR_DISPLAY | RETURN_HOME);
+	_delay_ms(1000);
+	
+	LCD_sendcmd(0x80 | 0x40 | 7); // d'après le sujet c'est une commande magique
+	LCD_sendcmd(CLEAR_DISPLAY | RETURN_HOME);
+	_delay_ms(1000);
+	
+	printf("Ou suis-je ?");
+}
+
+
+
+
+		// ----- Définir la position du curseur ----- //
+		
