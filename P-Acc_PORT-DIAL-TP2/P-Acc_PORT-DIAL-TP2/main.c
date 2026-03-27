@@ -56,8 +56,7 @@ void LCD_putchar(char c);
 int LCD_putchars(char c, FILE *STREAM);
 FILE donnee = FDEV_SETUP_STREAM(LCD_putchars, NULL, _FDEV_SETUP_WRITE); // on crée une variable de type FILE* (donc un nouvequ canal / nouvelle liaison) et on lui dit "Les écritures se font dans le canal LCD_putchars (où on retrouve la procédure d'envoi de donnée)
 
-void bargaph (float freq_jouee, float freq_cible);
-void test_bargraph(void);
+void tests_unitaires(void);
 
 
 
@@ -71,19 +70,9 @@ void main(void) {
 	
 	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
 	
-	char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Ré2", "La1", "Mi1"};
-	float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
-	
-	
 	LCD_init();
 	
-	LCD_sendcmd(LIGNE1 | 13);
-	
-	printf("%s", note_cible[0]);
-	
-	printf("Freq %d", )
-	
-	
+	tests_unitaires();
 	
     while (1) 
     {
@@ -169,11 +158,11 @@ int LCD_putchars(char c, FILE *stream) {
 
 void tests_unitaires(void) {
 	
-	unsigned char caractere = 'A'; // 65 = A en code asquii
+	unsigned char caractere = 65; // 65 = A en code asquii
 	
 	LCD_init();
 	
-	while (caractere <= 'Z') { // 90 = Z en code asquii
+	while (caractere <= 90) { // 90 = Z en code asquii
 		if (caractere == 'Q') LCD_sendcmd(LIGNE2); // Juste après la 16e lettre de l'aplhabet, on passe à la ligne (le lcd peut afficher jusqu'à 16 lettres par ligne)
 		LCD_putchar(caractere);
 		caractere++;
@@ -183,10 +172,12 @@ void tests_unitaires(void) {
 	LCD_sendcmd(RETURN_HOME);
 	_delay_ms(1000);
 	
-	printf("Accordeur 2026");
+	printf("Accordeur 20226");
+	LCD_sendcmd(CLEAR_DISPLAY | RETURN_HOME);
 	_delay_ms(1000);
 	
-	LCD_sendcmd(0x80 | 0x40 | 4); // Ligne 2 colone 4
+	LCD_sendcmd(0x80 | 0x40 | 7); // d'après le sujet c'est une commande magique
+	LCD_sendcmd(CLEAR_DISPLAY | RETURN_HOME);
 	_delay_ms(1000);
 	
 	printf("Ou suis-je ?");
@@ -195,88 +186,5 @@ void tests_unitaires(void) {
 
 
 
-		// ----- Fonction bargraph ----- //
-
-void bargaph (float freq_jouee, float freq_cible) {
-	
-	LCD_sendcmd(LIGNE2 | 7);
-	_delay_us(39);
-	printf("|");
-	
-	float ecart = (freq_jouee-freq_cible);
+		// ----- Définir la position du curseur ----- //
 		
-	if (ecart > 0) {
-		LCD_sendcmd(LIGNE2 | 8);
-		if (ecart <= 7) for (int i=0 ; i<ecart-0.5 ; i++) printf("+");
-		if (ecart > 7) printf("+>>");
-	}
-		
-	if (ecart < 0) {
-		LCD_sendcmd(LIGNE2 | 6);
-		LCD_sendcmd(ENTRY_MODE_SET | DECREMENT);
-		if (ecart >= -7) for (int i=ecart-0.5 ; i<0 ; i++) printf("-");
-		if (ecart < -7) printf("-<<"); // <<- à l'envers
-		LCD_sendcmd(ENTRY_MODE_SET | INCREMENT);
-	}
-	
-	if ((ecart <= 0.5) || (ecart >= -0.5)) {
-		LCD_sendcmd(LIGNE2 | 6);
-		printf("o|o");
-	}
-}
-
-void test_bargraph(void) {
-	// ----- Test d'unité négatif :						325.6-329.6 = -4			L'afficheur doit mettre 4 signes -
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2); // d'après la datashee, il faut attendre au moins 1.53ms (on attendra ici 2ms)
-	bargaph(325.6, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test d'arrondi néatif :					325-329.6 = -4.6			L'afficheur doit mettre 5 signes -
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(325, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test de dépassement d'écran négatif :		322.6-329.6 = -7			L'afficheur doit mettre 7 signes -
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(322.6, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test de dépassement d'écran négatif :		322.5-329.6 = -7.1			L'afficheur doit afficher <<-
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(322.5, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test d'unité positif :						333.6-329.6 = 4				L'afficheur doit mettre 4 signes +
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(333.6, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test d'arrondi positif :					334.2-329.6 = 4.6			L'afficheur doit mettre 5 signes +
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(334.4, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test de dépassement d'écran positif :		336.6-329.6 = 7				L'afficheur doit mettre 7 signes +
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(336.6, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test de dépassement d'écran positif :		336.7-329.6 = 7.1				L'afficheur doit afficher +>>
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(336.7, 329.6);
-	_delay_ms(1500);
-	
-	// ----- Test fréquence parfaite :					329.6-329.6 = 0				L'afficheur doit afficher o|o
-	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2);
-	bargaph(329.6, 329.6);
-	_delay_ms(1500);
-}
