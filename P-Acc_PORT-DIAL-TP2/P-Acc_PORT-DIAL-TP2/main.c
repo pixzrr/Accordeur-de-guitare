@@ -43,9 +43,9 @@
 #define LIGNE1					0x80
 #define LIGNE2					(0x80 | 0x40)
 
-#define E						0x00 // Autoriser l'envoi de la donnée (0 si on ne veut rien envoyer, 1 si on veut envoyer une donnée
-#define RW						0x01 // Ecrire ou lire la donnée (0 pour envoyer, 1 pour lire) - bit 1 du port c
-#define RS						0x02 // Savoir quelle donnee est echangée (RS = 0 si commande ou 1 si c'est un caractère) - bit 2 du port c
+#define E						0x00 // Autoriser l'envoi de la donnÃ©e (0 si on ne veut rien envoyer, 1 si on veut envoyer une donnÃ©e
+#define RW						0x01 // Ecrire ou lire la donnÃ©e (0 pour envoyer, 1 pour lire) - bit 1 du port c
+#define RS						0x02 // Savoir quelle donnee est echangÃ©e (RS = 0 si commande ou 1 si c'est un caractÃ¨re) - bit 2 du port c
 
 
 		// ----- Liste des fonctions ----- //
@@ -55,7 +55,7 @@ void LCD_sendcmd(char cmd);
 void LCD_putchar(char c);
 
 int LCD_putchars(char c, FILE *STREAM);
-FILE donnee = FDEV_SETUP_STREAM(LCD_putchars, NULL, _FDEV_SETUP_WRITE); // on crée une variable de type FILE* (donc un nouvequ canal / nouvelle liaison) et on lui dit "Les écritures se font dans le canal LCD_putchars (où on retrouve la procédure d'envoi de donnée)
+FILE donnee = FDEV_SETUP_STREAM(LCD_putchars, NULL, _FDEV_SETUP_WRITE); // on crÃ©e une variable de type FILE* (donc un nouvequ canal / nouvelle liaison) et on lui dit "Les Ã©critures se font dans le canal LCD_putchars (oÃ¹ on retrouve la procÃ©dure d'envoi de donnÃ©e)
 
 void bargaph (float freq_jouee, float freq_cible);
 void test_bargraph(void);
@@ -71,11 +71,20 @@ void init_timer1();
 void jouer_timer1(float freq);
 void stop_timer1();
 
+void init_timer0(void);
+void jouer_timer0(float freq);
+void stop_timer0();
+
 
 
 		// ----- Variables globales ----- //
 
-volatile unsigned char mode_normal = 0;
+volatile unsigned char mode = 0;
+
+#define MESURE 0
+#define SOUND 1
+
+
 volatile unsigned char debug_mode = 0;
 
 volatile unsigned char choix_note = 0;
@@ -89,16 +98,19 @@ void main(void) {
 	LCD_init();
 	// _________________Setup_________________ //
 	
-		// ___Ports LCD___ //													// (le port C sert à envoyer des instructions d'envoi / lecture et le port A sert à envoyer la donnée)
+		// ___Ports LCD___ //													// (le port C sert Ã  envoyer des instructions d'envoi / lecture et le port A sert Ã  envoyer la donnÃ©e)
 		
 	DDRA = 0xFF;
 	DDRC = 0xFF;
+	//tests_unitaires();
+	
+	
+	// ___Gestion printf___ //	
+	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD Ã  la place du terminal)
 	
 	// ___Gestion activation DEBUG___ //
-	
-	if (PIND & (1<<PD2) == 0) {
+	if ((PIND & (1<<PD2)) == 0) {
 		debug_mode = 1;
-		mode_DEBUG();
 	}
 	
 	// ___Gestion INIT___ //
@@ -109,18 +121,36 @@ void main(void) {
 	
 	// ___Gestion TIMERS___ //
 	
-	 init_timer1();
+	init_timer1();
+	init_timer0();
 	
 	// ___Gestion printf___ //
 	
-	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
+	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD Ã  la place du terminal)
 	
 	
 	// ___Gestion MODES___ //
 	
 	
+	
+	
     while (1) 
     {
+		
+		
+		switch (mode) {
+			
+			case MESURE:
+				if (debug_mode == 0) mode_MESURE();
+				if (debug_mode == 1) mode_DEBUG();
+				break;
+		
+			case SOUND:
+				if (debug_mode == 0) mode_SOUND();
+				if (debug_mode == 1) mode_DEBUG();
+				break;
+		}
+				
     }
 }
 
@@ -135,16 +165,16 @@ void LCD_init(void) { // On se sert ici de la page 5 de la partie datasheet
 	
 	_delay_ms(100);
 	
-	LCD_sendcmd(FUNCTION_SET | _2_LINE_MODE | _5x8_DOTS); // On veut un écrant avec 5x8 points par caractère et 2 lignes pour afficher les caractères
+	LCD_sendcmd(FUNCTION_SET | _2_LINE_MODE | _5x8_DOTS); // On veut un Ã©crant avec 5x8 points par caractÃ¨re et 2 lignes pour afficher les caractÃ¨res
 	_delay_us(39);
 	
-	LCD_sendcmd(DISPLAY_ON_OFF_CONTROL | DISPLAY_ON | CURSOR_ON | BLINK_ON); // Pour CURSOR_ON on pourra mettre CURSOR_OFF quand la partie numérique sera terminée, pareil pour le blink
+	LCD_sendcmd(DISPLAY_ON_OFF_CONTROL | DISPLAY_ON | CURSOR_ON | BLINK_ON); // Pour CURSOR_ON on pourra mettre CURSOR_OFF quand la partie numÃ©rique sera terminÃ©e, pareil pour le blink
 	_delay_us(39);
 	
-	LCD_sendcmd(CLEAR_DISPLAY); // On nettoie l'écran
+	LCD_sendcmd(CLEAR_DISPLAY); // On nettoie l'Ã©cran
 	_delay_ms(2);
 	
-	LCD_sendcmd(ENTRY_MODE_SET | INCREMENT | ENTIRE_SHIFT_OFF); // Increment = ecrire de gauche à droite
+	LCD_sendcmd(ENTRY_MODE_SET | INCREMENT | ENTIRE_SHIFT_OFF); // Increment = ecrire de gauche Ã  droite
 	_delay_us(39);
 }
 
@@ -154,52 +184,52 @@ void LCD_init(void) { // On se sert ici de la page 5 de la partie datasheet
 		// ----- Envoyer une commande ----- //
 
 void LCD_sendcmd(char cmd) {
-	PORTC = 0x00;						// On met RS et RW à 0 car on envoie une commande
-	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
-									// On laisse le bit E du port c à 0 car on envoie une commande
-	PORTA = cmd;						// On envoi la donnée sur le port A
-	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
-	_delay_us(43);						// on attend le temps que l'écriture se termine
+	PORTC = 0x00;						// On met RS et RW Ã  0 car on envoie une commande
+	PORTC |= (1 << E);					// On autorise l'envoi de la donnÃ©e
+									// On laisse le bit E du port c Ã  0 car on envoie une commande
+	PORTA = cmd;						// On envoi la donnÃ©e sur le port A
+	PORTC = ~(1 << E);					// On ferme notre fenÃªtre d'envoi
+	_delay_us(43);						// on attend le temps que l'Ã©criture se termine
 }
 
 
 
 
-		// ----- Envoyer un caractère ----- //
+		// ----- Envoyer un caractÃ¨re ----- //
 
 void LCD_putchar(char c) {
-	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie une commande
-	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
-								// On laisse le bit E du port c à 0 car on envoie une commande
-	PORTA = c;							// On envoi la donnée sur le port A
+	PORTC = 0x00 | (1<< RS);			// On met RS Ã  1 et RW Ã  0 car on envoie une commande
+	PORTC |= (1 << E);					// On autorise l'envoi de la donnÃ©e
+								// On laisse le bit E du port c Ã  0 car on envoie une commande
+	PORTA = c;							// On envoi la donnÃ©e sur le port A
 	
-	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
+	PORTC = ~(1 << E);					// On ferme notre fenÃªtre d'envoi
 	
-	_delay_ms(1.573);						// on attend le temps que l'écriture se termine + le temps d'éxectution de la commande la plus lente (donc 43us + 1.53ms)
+	_delay_ms(1.573);						// on attend le temps que l'Ã©criture se termine + le temps d'Ã©xectution de la commande la plus lente (donc 43us + 1.53ms)
 }
 
 
 
 
-		// ----- Envoyer une chaine de caractères ----- //
+		// ----- Envoyer une chaine de caractÃ¨res ----- //
 
 int LCD_putchars(char c, FILE *stream) {
-	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie une commande
-	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
-	// On laisse le bit E du port c à 0 car on envoie une commande
-	PORTA = c;							// On envoi la donnée sur le port A
-	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
+	PORTC = 0x00 | (1<< RS);			// On met RS Ã  1 et RW Ã  0 car on envoie une commande
+	PORTC |= (1 << E);					// On autorise l'envoi de la donnÃ©e
+	// On laisse le bit E du port c Ã  0 car on envoie une commande
+	PORTA = c;							// On envoi la donnÃ©e sur le port A
+	PORTC = ~(1 << E);					// On ferme notre fenÃªtre d'envoi
 	
 	
 	_delay_us(43);
-	return 01; // 01 sera le code pour annoncer que la donnée a été envoyé
+	return 01; // 01 sera le code pour annoncer que la donnÃ©e a Ã©tÃ© envoyÃ©
 }
 
 
 
 	
 
-		// ----- Envoyer une chaine de caractères ----- //
+		// ----- Envoyer une chaine de caractÃ¨res ----- //
 
 void tests_unitaires(void) {
 	
@@ -208,7 +238,7 @@ void tests_unitaires(void) {
 	LCD_init();
 	
 	while (caractere <= 'Z') { // 90 = Z en code asquii
-		if (caractere == 'Q') LCD_sendcmd(LIGNE2); // Juste après la 16e lettre de l'aplhabet, on passe à la ligne (le lcd peut afficher jusqu'à 16 lettres par ligne)
+		if (caractere == 'Q') LCD_sendcmd(LIGNE2); // Juste aprÃ¨s la 16e lettre de l'aplhabet, on passe Ã  la ligne (le lcd peut afficher jusqu'Ã  16 lettres par ligne)
 		LCD_putchar(caractere);
 		caractere++;
 		_delay_ms(500);
@@ -239,7 +269,7 @@ void bargaph (float freq_jouee, float freq_cible) {
 	
 	float ecart = freq_jouee - freq_cible;
 		
-	if (ecart > 0.5) { // On met une petite marge parce qu'être parfaitement sur la bonne note est presque impossible
+	if (ecart > 0.5) { // On met une petite marge parce qu'Ãªtre parfaitement sur la bonne note est presque impossible
 		LCD_sendcmd(LIGNE2 | 8);
 		if (ecart <= 7) for (int i=0 ; i<ecart-0.5 ; i++) printf("+");
 		if (ecart > 7) printf("+>>");
@@ -249,7 +279,7 @@ void bargaph (float freq_jouee, float freq_cible) {
 		LCD_sendcmd(LIGNE2 | 6);
 		LCD_sendcmd(ENTRY_MODE_SET | DECREMENT);
 		if (ecart >= -7) for (int i=ecart-0.5 ; i<0 ; i++) printf("-");
-		if (ecart < -7) printf("-<<"); // <<- à l'envers
+		if (ecart < -7) printf("-<<"); // <<- Ã  l'envers
 		LCD_sendcmd(ENTRY_MODE_SET | INCREMENT);
 	}
 	
@@ -265,31 +295,31 @@ void bargaph (float freq_jouee, float freq_cible) {
 		// ----- Fonction test bargraph ----- //
 
 void test_bargraph(void) {
-	// ----- Test d'unité négatif :						325.6-329.6 = -4			L'afficheur doit mettre 4 signes -
+	// ----- Test d'unitÃ© nÃ©gatif :						325.6-329.6 = -4			L'afficheur doit mettre 4 signes -
 	LCD_sendcmd(CLEAR_DISPLAY);
-	_delay_ms(2); // d'après la datashee, il faut attendre au moins 1.53ms (on attendra ici 2ms)
+	_delay_ms(2); // d'aprÃ¨s la datashee, il faut attendre au moins 1.53ms (on attendra ici 2ms)
 	bargaph(325.6, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test d'arrondi néatif :					325-329.6 = -4.6			L'afficheur doit mettre 5 signes -
+	// ----- Test d'arrondi nÃ©atif :					325-329.6 = -4.6			L'afficheur doit mettre 5 signes -
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(325, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test de dépassement d'écran négatif :		322.6-329.6 = -7			L'afficheur doit mettre 7 signes -
+	// ----- Test de dÃ©passement d'Ã©cran nÃ©gatif :		322.6-329.6 = -7			L'afficheur doit mettre 7 signes -
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(322.6, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test de dépassement d'écran négatif :		322.5-329.6 = -7.1			L'afficheur doit afficher <<-
+	// ----- Test de dÃ©passement d'Ã©cran nÃ©gatif :		322.5-329.6 = -7.1			L'afficheur doit afficher <<-
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(322.5, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test d'unité positif :						333.6-329.6 = 4				L'afficheur doit mettre 4 signes +
+	// ----- Test d'unitÃ© positif :						333.6-329.6 = 4				L'afficheur doit mettre 4 signes +
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(333.6, 329.6);
@@ -301,19 +331,19 @@ void test_bargraph(void) {
 	bargaph(334.4, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test de dépassement d'écran positif :		336.6-329.6 = 7				L'afficheur doit mettre 7 signes +
+	// ----- Test de dÃ©passement d'Ã©cran positif :		336.6-329.6 = 7				L'afficheur doit mettre 7 signes +
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(336.6, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test de dépassement d'écran positif :		336.7-329.6 = 7.1				L'afficheur doit afficher +>>
+	// ----- Test de dÃ©passement d'Ã©cran positif :		336.7-329.6 = 7.1				L'afficheur doit afficher +>>
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(336.7, 329.6);
 	_delay_ms(1500);
 	
-	// ----- Test fréquence parfaite :					329.6-329.6 = 0				L'afficheur doit afficher o|o
+	// ----- Test frÃ©quence parfaite :					329.6-329.6 = 0				L'afficheur doit afficher o|o
 	LCD_sendcmd(CLEAR_DISPLAY);
 	_delay_ms(2);
 	bargaph(329.6, 329.6);
@@ -341,6 +371,11 @@ void mode_MESURE(void) {
 	printf("Freq %d", (int) freq_cible[choix_note]); // le LCD ne prend pas en charge les float (on changera surement qvec la frequence mesuree
 	
 	bargaph(329, freq_cible[choix_note]);
+	
+	
+	// GÃ©nÃ©rer frÃ©quence
+	
+	jouer_timer0(freq_cible[choix_note]);
 }
 
 
@@ -350,6 +385,8 @@ void mode_MESURE(void) {
 		// ----- Mode MESURE ----- //
 		
 void mode_SOUND(void) {
+	
+	stop_timer0();
 			
 	char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Re2", "La1", "Mi1"};
 	float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
@@ -431,35 +468,20 @@ void init_int0(void) {
 }
 
 ISR(INT0_vect) {
-	if (debug_mode == 1) {
-		if (debug_mode == 1 || debug_mode == 3) debug_mode = 2;
-		if (debug_mode == 2) debug_mode = 3;
-		
-		mode_DEBUG();
-	}
-	
-	if (debug_mode == 0) {
-			if (choix_note<5) choix_note++;
-			else choix_note = 0;
-			
-			if (mode_normal == 0) mode_MESURE();
-			if (mode_normal == 1) mode_SOUND();
-	}
+	if (choix_note<5) choix_note++;
+	else choix_note = 0;
 }
 
 
 void init_int1(void) {
-	DDRD &= ~(1<<PD2);
+	DDRD &= ~(1<<PD3);
 	
 	GICR = GICR | (1<<INT1);
 	MCUCR = MCUCR | (1<<ISC11);
 }
 
 ISR(INT1_vect) {
-	mode_normal = 1-mode_normal;
-	
-	if (mode_normal == 0 && debug_mode == 0) mode_MESURE();
-	if (mode_normal == 1 && debug_mode == 0) mode_SOUND();
+	mode = 1-mode;
 }
 
 
@@ -477,15 +499,35 @@ ISR(INT1_vect) {
 void init_timer1() {
 	DDRD |= (1<<PD5);
 	
+	TCCR1B = (1<<WGM12) ;
 	TCCR1A = (1<<COM1A0);
-	TCCR1B = (1<<WGM12);
 }
 
 void jouer_timer1(float freq) {
-	TCCR1B |= (1<<CS10);
-	OCR1A = (F_CPU/(2*1*(freq))-1) + 0.5;
+	TCCR1B |= (1<<CS11);
+	OCR1A = (F_CPU/(2*1*freq)-1) + 0.5;
 }
 
 void stop_timer1() {
-	TCCR1B = TCCR1B & (~(1<<CS10));
+	TCCR1B = TCCR1B & (~(1<<CS11));
+}
+
+
+		// ----------- TIMER 1 ----------- //
+		
+
+void init_timer0() {
+	DDRB |= (1<<PB3);
+	
+	TCCR0 = (1<<COM00) | (1<<WGM01) | (1<<CS00);
+}
+
+void jouer_timer0(float freq) {
+	TCCR0 |= (1<<CS00);
+	
+	OCR0 = ((3686400/(2*1*freq)-1) + 0.5)*100;
+}
+
+void stop_timer0() {
+	TCCR0 &= (~(1<<CS00));
 }
