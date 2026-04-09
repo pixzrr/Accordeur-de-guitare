@@ -82,15 +82,26 @@ void stop_timer0();
 
 volatile unsigned char mode = 0;
 
-#define MESURE 0
-#define SOUND 1
-
+#define MODE_MESURE 0
+#define MODE_SOUND 1
+#define MODE_DEBUG 2
 
 volatile unsigned char debug_mode = 0;
+
+#define NOMBRE_MODES_DEBUG 2 // ===== à changer en fonction du nombre de tests dans le menu =====
+
+#define DEBUG_TESTS_UNIT 1
+#define DEBUG_BARGRAPH 2
+
 
 volatile unsigned char choix_note = 0;
 
 volatile int compteur_mesure = 0;
+
+// Tableaux des notes et fréquences
+
+char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Re2", "La1", "Mi1"};
+float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
 
 
 
@@ -98,7 +109,11 @@ volatile int compteur_mesure = 0;
 // ------------------------------------------------------------------------------------------------------------------------- //
 
 void main(void) {
+	// _________________Initialisation du LCD_________________ //
+	
 	LCD_init();
+	
+	
 	// _________________Setup_________________ //
 	
 		// ___Ports LCD___ //													// (le port C sert à envoyer des instructions d'envoi / lecture et le port A sert à envoyer la donnée)
@@ -110,11 +125,6 @@ void main(void) {
 	
 	// ___Gestion printf___ //	
 	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
-	
-	// ___Gestion activation DEBUG___ //
-	if ((PIND & (1<<PD2)) == 0) {
-		debug_mode = 1;
-	}
 	
 	// ___Gestion INIT___ //
 	
@@ -133,28 +143,71 @@ void main(void) {
 	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
 	
 	
-	// ___Gestion MODES___ //
+	// ___Animation de démarrage (élément sympa permettant d'attendre un peu si on veut aller en debug)___ //
 	
 	
+	LCD_sendcmd(CLEAR_DISPLAY);
+	_delay_ms(100); // Si on met pas ce delay ça bug (au plus la tension délivrée dans le LCD est élevée, au plus il faudra attendre (delay réglé pour 4.5V max)
+	LCD_sendcmd(RETURN_HOME);
+	_delay_ms(100);
 	
+
+	
+	LCD_sendcmd(LIGNE1 | 3);
+	printf("Accordeur");
+	
+	_delay_ms(1000);
+	
+	for (int i=0 ; i<3 ; i++) {
+		LCD_sendcmd(LIGNE2 | 5);
+		printf(".");
+		_delay_ms(300);
+		LCD_sendcmd(LIGNE2 | 5);
+		printf(" ");
+		
+		LCD_sendcmd(LIGNE2 | 7);
+		printf(".");
+		_delay_ms(300);
+		LCD_sendcmd(LIGNE2 | 7);
+		printf(" ");
+		
+		LCD_sendcmd(LIGNE2 | 9);
+		printf(".");
+		_delay_ms(300);
+		LCD_sendcmd(LIGNE2 | 9);
+		printf(" ");
+	}
+	
+	// ___Gestion activation DEBUG___ //
+	if ((PIND & (1<<PD2)) == 0) {
+		mode = 2;
+		
+		LCD_sendcmd(LIGNE1 | 3);
+		printf(("Mode DEBUG"));
+		
+		LCD_sendcmd(LIGNE2);
+		printf("Voir tests -->");
+	}
+	
+	
+	// _________________ Boucle While _________________ //
 	
     while (1) 
     {
-		
-		
 		switch (mode) {
 			
-			case MESURE:
-				if (debug_mode == 0) mode_MESURE();
-				if (debug_mode == 1) mode_DEBUG();
+			case MODE_MESURE:
+				if (mode != MODE_DEBUG) mode_MESURE();
 				break;
 		
-			case SOUND:
-				if (debug_mode == 0) mode_SOUND();
-				if (debug_mode == 1) mode_DEBUG();
+			case MODE_SOUND:
+				if (mode != MODE_DEBUG) mode_SOUND();
 				break;
-		}
-				
+			
+			case MODE_DEBUG:
+				if (debug_mode != 0) mode_DEBUG();
+				break;
+		}		
     }
 }
 
@@ -366,8 +419,6 @@ void mode_MESURE(void) {
 	
 	stop_timer1(); // On veut pas jouer la note en mode mesure
 	
-	char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Re2", "La1", "Mi1"};
-	float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
 	int erreur[6] = {3, 2, 2, 1, 1, 1};
 		
 		
@@ -407,9 +458,6 @@ void mode_MESURE(void) {
 void mode_SOUND(void) {
 	
 	stop_timer0();
-			
-	char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Re2", "La1", "Mi1"};
-	float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
 	
 	LCD_init();
 	
@@ -430,20 +478,10 @@ void mode_SOUND(void) {
 
 void mode_DEBUG(void) {
 	
-	char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Re2", "La1", "Mi1"};
-	float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
-	
 	LCD_init();
 	
-	if (debug_mode == 1) {
-		LCD_sendcmd(LIGNE1 | 3);
-		printf(("Mode DEBUG"));
-		
-		LCD_sendcmd(LIGNE2);
-		printf("Voir tests -->");
-	}
 	
-	if (debug_mode == 2) {
+	if (debug_mode == DEBUG_TESTS_UNIT) {
 		LCD_sendcmd(LIGNE1);
 		printf("Tests unitaires");
 		
@@ -451,10 +489,10 @@ void mode_DEBUG(void) {
 		printf("Demarrer ->");
 		
 		LCD_sendcmd(LIGNE2 | 16);
-		printf("1");
+		printf("1/%d", NOMBRE_MODES_DEBUG);
 	}
 	
-	if (debug_mode == 3) {
+	if (debug_mode == DEBUG_BARGRAPH) {
 		LCD_sendcmd(LIGNE1);
 		printf("Tests bargraph");
 		
@@ -463,6 +501,7 @@ void mode_DEBUG(void) {
 		
 		LCD_sendcmd(LIGNE2 | 16);
 		printf("2");
+		printf("1/%d", NOMBRE_MODES_DEBUG);
 	}
 }
 
@@ -488,8 +527,10 @@ void init_int0(void) {
 }
 
 ISR(INT0_vect) {
-	if (choix_note<5) choix_note++;
-	else choix_note = 0;
+	if (mode != MODE_DEBUG) {
+		if (choix_note<5) choix_note++;
+		else choix_note = 0;
+	}
 }
 
 
@@ -501,7 +542,14 @@ void init_int1(void) {
 }
 
 ISR(INT1_vect) {
-	mode = 1-mode;
+	if (mode != MODE_DEBUG) mode = 1-mode;
+	
+	if (mode == MODE_DEBUG) {
+		if (debug_mode > NOMBRE_MODES_DEBUG) debug_mode = 1;
+		else debug_mode++;
+	}
+	
+	
 }
 
 void init_int2(void) {
