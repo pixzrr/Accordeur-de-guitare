@@ -68,9 +68,9 @@ void init_int0(void);
 void init_int1(void);
 void init_int2(void);
 
-void init_timer1();
-void jouer_timer1(float freq);
-void stop_timer1();
+void init_timer1(float freq);
+void init_timer1_meas();
+void reset_timer1();
 
 void init_timer0(void);
 void jouer_timer0(float freq);
@@ -100,7 +100,10 @@ volatile unsigned char debug_mode_test_valide = 0;
 
 volatile unsigned char choix_note = 0;
 
-volatile int compteur_mesure = 0;
+
+volatile unsigned char front1 = 1;
+volatile unsigned int periode_clk;
+volatile unsigned char mesure_terminee;
 
 // Tableaux des notes et fréquences
 
@@ -137,9 +140,8 @@ void main(void) {
 	init_int2();
 	sei();
 	
-	// ___Gestion TIMERS___ //
+	// ___Gestion TIMER___ //
 	
-	init_timer1();
 	init_timer0();
 	
 	// ___Gestion printf___ //
@@ -167,11 +169,15 @@ void main(void) {
 		switch (mode) {
 			
 			case MODE_MESURE:
-				if (mode != MODE_DEBUG) mode_MESURE();
+				if (mode != MODE_DEBUG) {
+					mode_MESURE();
+				}
 				break;
 		
 			case MODE_SOUND:
-				if (mode != MODE_DEBUG) mode_SOUND();
+				if (mode != MODE_DEBUG) {
+					mode_SOUND();
+				}
 				break;
 			
 			case MODE_DEBUG:
@@ -386,29 +392,24 @@ void test_bargraph(void) {
 		
 void mode_MESURE(void) {
 	
-	int freq_mesuree;
+	static unsigned char init_fait = 0;
+
+	if (init_fait == 0) {
+		init_timer1_meas();
+		init_fait = 1;
+	}
 	
+	unsigned int freq_mesuree = 0;
 	
-	stop_timer1(); // On veut pas jouer la note en mode mesure
-	
-	int erreur[6] = {3, 2, 2, 1, 1, 1};
-		
 		
 	// Générer fréquence
 	
 	jouer_timer0(freq_cible[choix_note]);
 	
-	// Mesurer fréquence
-	
-	compteur_mesure = 0;
-	
-	_delay_ms(1000);
-	
-	freq_mesuree = compteur_mesure-erreur[choix_note];
-	
-	
-	
-	
+	if (mesure_terminee == 1) {
+		freq_mesuree = F_CPU / (8*periode_clk);
+		mesure_terminee = 0;
+	}
 	
 	
 	// Affichage
@@ -433,6 +434,8 @@ void mode_MESURE(void) {
 		
 void mode_SOUND(void) {
 	
+
+	
 	stop_timer0();
 	
 	LCD_init();
@@ -442,8 +445,6 @@ void mode_SOUND(void) {
 	
 	LCD_sendcmd(LIGNE2);
 	printf("Note : %s", note_cible[choix_note]);
-	
-	jouer_timer1((int)freq_cible[choix_note]);
 }
 
 
@@ -556,7 +557,15 @@ void init_int2(void) {
 }
 
 ISR(INT2_vect) {
-	compteur_mesure++;
+	if (front1 == 1) {
+		TCNT1 = 0;
+		front1 = 0;
+	}
+	else {
+		periode_clk = TCNT1;
+		mesure_terminee = 1;
+		front1 = 1;
+	}
 }
 
 
@@ -570,20 +579,31 @@ ISR(INT2_vect) {
 
 		// ----------- TIMER 1 ----------- //
 		
-void init_timer1() {
+void init_timer1(float freq) {
+	reset_timer1();
+
 	DDRD |= (1<<PD5);
 	
-	TCCR1B = (1<<WGM12) ;
+	TCCR1B = (1<<WGM12) | (1<<CS10);
 	TCCR1A = (1<<COM1A0);
-}
-
-void jouer_timer1(float freq) {
-	TCCR1B |= (1<<CS10);
+	
 	OCR1A = (F_CPU/(2*1*freq)-1) + 0.5;
 }
 
-void stop_timer1() {
-	TCCR1B = TCCR1B & (~(1<<CS11));
+void init_timer1_meas() {
+	reset_timer1();
+
+	DDRD &= ~(1<<PD5); // On remet PD5 en entrée pour éviter que ça sorte au niveau des hauts parleurs
+	
+	TCCR1A = 0; // on avait TCCR1A != 0 juste au dessus donc on remet à 0
+	TCCR1B = (1<<CS11);
+}
+
+void reset_timer1(void) {
+	TCCR1A = 0;
+	TCCR1B = 0;
+	TCNT1  = 0;
+	OCR1A  = 0;
 }
 
 
