@@ -392,6 +392,7 @@ void test_bargraph(void) {
 		
 void mode_MESURE(void) {
 	
+			// On  init qu'une seule fois le timer 0 (evite les glitch et erreurs de mesures (oui c'est arrivé et oui ça a été corrigé))
 	static unsigned char init_fait = 0;
 
 	if (init_fait == 0) {
@@ -434,8 +435,6 @@ void mode_MESURE(void) {
 		
 void mode_SOUND(void) {
 	
-
-	
 	stop_timer0();
 	
 	LCD_init();
@@ -445,6 +444,8 @@ void mode_SOUND(void) {
 	
 	LCD_sendcmd(LIGNE2);
 	printf("Note : %s", note_cible[choix_note]);
+	
+	init_timer1(freq_cible[choix_note]);
 }
 
 
