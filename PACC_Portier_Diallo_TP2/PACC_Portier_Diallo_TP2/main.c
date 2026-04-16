@@ -68,9 +68,10 @@ void init_int0(void);
 void init_int1(void);
 void init_int2(void);
 
-void init_timer1(float freq);
+void init_timer1();
+void jouer_timer1(float freq);
+void stop_timer1();
 void init_timer1_meas();
-void reset_timer1();
 
 void init_timer0(void);
 void jouer_timer0(float freq);
@@ -405,7 +406,9 @@ void mode_MESURE(void) {
 		
 	// Générer fréquence
 	
-	jouer_timer0(freq_cible[choix_note]);
+	float fc = freq_cible[choix_note]*1.5*100;
+	
+	jouer_timer0(fc);
 	
 	if (mesure_terminee == 1) {
 		freq_mesuree = F_CPU / (8*periode_clk);
@@ -437,6 +440,13 @@ void mode_SOUND(void) {
 	
 	stop_timer0();
 	
+	static unsigned char init_fait = 0;
+
+	if (init_fait == 0) {
+		init_timer1();
+		init_fait = 1;
+	}
+	
 	LCD_init();
 	
 	LCD_sendcmd(LIGNE1 | 3);
@@ -445,7 +455,7 @@ void mode_SOUND(void) {
 	LCD_sendcmd(LIGNE2);
 	printf("Note : %s", note_cible[choix_note]);
 	
-	init_timer1(freq_cible[choix_note]);
+	jouer_timer1(freq_cible[choix_note]);
 }
 
 
@@ -580,31 +590,32 @@ ISR(INT2_vect) {
 
 		// ----------- TIMER 1 ----------- //
 		
-void init_timer1(float freq) {
-	reset_timer1();
+void init_timer1() {
+	stop_timer1();
 
 	DDRD |= (1<<PD5);
 	
 	TCCR1B = (1<<WGM12) | (1<<CS10);
 	TCCR1A = (1<<COM1A0);
-	
+}
+
+void jouer_timer1(float freq) {
 	OCR1A = (F_CPU/(2*1*freq)-1) + 0.5;
 }
 
+void stop_timer1() {
+	OCR1A = 0;
+	TCCR1B = 0;
+	TCCR1A = 0;
+}
+
 void init_timer1_meas() {
-	reset_timer1();
+	stop_timer1();
 
 	DDRD &= ~(1<<PD5); // On remet PD5 en entrée pour éviter que ça sorte au niveau des hauts parleurs
 	
 	TCCR1A = 0; // on avait TCCR1A != 0 juste au dessus donc on remet à 0
 	TCCR1B = (1<<CS11);
-}
-
-void reset_timer1(void) {
-	TCCR1A = 0;
-	TCCR1B = 0;
-	TCNT1  = 0;
-	OCR1A  = 0;
 }
 
 
@@ -620,7 +631,7 @@ void init_timer0() {
 void jouer_timer0(float freq) {
 	TCCR0 |= (1<<CS00);
 	
-	OCR0 = ((3686400/(2*1*freq)-1) + 0.5)*1.5*100; // *1.5 car on veut fc un peu au dessus de la fréquence à mesurer, mais en dessous de sa deuxième armonique
+	OCR0 = (F_CPU/(2*1*freq)-1) + 0.5;
 }
 
 void stop_timer0() {
