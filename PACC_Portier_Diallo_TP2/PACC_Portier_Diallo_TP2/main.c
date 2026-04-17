@@ -705,45 +705,20 @@ void animation_demarrage(void) {
 	
 	_delay_ms(1000);
 	
-	for (int i=0 ; i<3 ; i++) {
-		LCD_sendcmd(LIGNE2 | 5);
-		printf(".");
-		_delay_ms(200);
-		LCD_sendcmd(LIGNE2 | 5);
-		printf(" ");
-		
-		LCD_sendcmd(LIGNE2 | 7);
-		printf(".");
-		_delay_ms(200);
-		LCD_sendcmd(LIGNE2 | 7);
-		printf(" ");
-		
-		LCD_sendcmd(LIGNE2 | 9);
-		printf(".");
-		_delay_ms(200);
-		LCD_sendcmd(LIGNE2 | 9);
-		printf(" ");
-	}
-}
 
-void animation_chargement(void) {
-	for (int i=0 ; i<2 ; i++) {
-		LCD_sendcmd(LIGNE2 | 5);
-		printf(".");
-		_delay_ms(200);
-		LCD_sendcmd(LIGNE2 | 5);
-		printf(" ");
+	LCD_sendcmd(LIGNE2 | 5);
+	printf(".");
+	_delay_ms(200);
+	LCD_sendcmd(LIGNE2 | 5);
 		
-		LCD_sendcmd(LIGNE2 | 7);
-		printf(".");
-		_delay_ms(200);
-		LCD_sendcmd(LIGNE2 | 7);
-		printf(" ");
+	LCD_sendcmd(LIGNE2 | 7);
+	printf(".");
+	_delay_ms(200);
+	LCD_sendcmd(LIGNE2 | 7);
 		
-		LCD_sendcmd(LIGNE2 | 9);
-		printf(".");
-		_delay_ms(200);
-		LCD_sendcmd(LIGNE2 | 9);
-		printf(" ");
-	}
+	LCD_sendcmd(LIGNE2 | 9);
+	printf(".");
+	_delay_ms(200);
+	LCD_sendcmd(LIGNE2 | 9);
+
 }
