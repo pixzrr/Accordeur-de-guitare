@@ -92,6 +92,7 @@ volatile unsigned char mode = 0;
 
 volatile unsigned char debug_mode = 0;
 volatile unsigned char debug_mode_test_valide = 0;
+volatile unsigned char changement_mode_timer1 = 0;
 
 #define NOMBRE_MODES_DEBUG 2 // ===== à changer en fonction du nombre de tests dans le menu =====
 
@@ -129,6 +130,7 @@ void main(void) {
 	DDRA = 0xFF;
 	DDRC = 0xFF;
 	//tests_unitaires();
+	//test_bargraph();
 	
 	
 	// ___Gestion printf___ //	
@@ -333,56 +335,101 @@ void bargaph (float freq_jouee, float freq_cible) {
 void test_bargraph(void) {
 	// ----- Test d'unité négatif :						325.6-329.6 = -4			L'afficheur doit mettre 4 signes -
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2); // d'après la datashee, il faut attendre au moins 1.53ms (on attendra ici 2ms)
 	bargaph(325.6, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:325.6");
+	
 	_delay_ms(1500);
 	
 	// ----- Test d'arrondi néatif :					325-329.6 = -4.6			L'afficheur doit mettre 5 signes -
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(325, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:325");
+	
 	_delay_ms(1500);
 	
 	// ----- Test de dépassement d'écran négatif :		322.6-329.6 = -7			L'afficheur doit mettre 7 signes -
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(322.6, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:322.6");
+	
 	_delay_ms(1500);
 	
 	// ----- Test de dépassement d'écran négatif :		322.5-329.6 = -7.1			L'afficheur doit afficher <<-
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(322.5, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:322.5");
+	
 	_delay_ms(1500);
 	
 	// ----- Test d'unité positif :						333.6-329.6 = 4				L'afficheur doit mettre 4 signes +
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(333.6, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:333.6");
+	
 	_delay_ms(1500);
 	
 	// ----- Test d'arrondi positif :					334.2-329.6 = 4.6			L'afficheur doit mettre 5 signes +
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(334.4, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:334.2");
+	
 	_delay_ms(1500);
 	
 	// ----- Test de dépassement d'écran positif :		336.6-329.6 = 7				L'afficheur doit mettre 7 signes +
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(336.6, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:336.6");
+	
 	_delay_ms(1500);
 	
 	// ----- Test de dépassement d'écran positif :		336.7-329.6 = 7.1				L'afficheur doit afficher +>>
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(336.7, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:336.7");
+	
 	_delay_ms(1500);
 	
 	// ----- Test fréquence parfaite :					329.6-329.6 = 0				L'afficheur doit afficher o|o
 	LCD_sendcmd(CLEAR_DISPLAY);
+	
 	_delay_ms(2);
 	bargaph(329.6, 329.6);
+	
+	LCD_sendcmd(LIGNE1);
+	printf("Fc:329.6 F:329.6");
+	
 	_delay_ms(1500);
 }
 
@@ -394,11 +441,10 @@ void test_bargraph(void) {
 void mode_MESURE(void) {
 	
 			// On  init qu'une seule fois le timer 0 (evite les glitch et erreurs de mesures (oui c'est arrivé et oui ça a été corrigé))
-	static unsigned char init_fait = 0;
 
-	if (init_fait == 0) {
+	if (changement_mode_timer1 == 0) {
 		init_timer1_meas();
-		init_fait = 1;
+		changement_mode_timer1 = 1;
 	}
 	
 	unsigned int freq_mesuree = 0;
@@ -439,12 +485,10 @@ void mode_MESURE(void) {
 void mode_SOUND(void) {
 	
 	stop_timer0();
-	
-	static unsigned char init_fait = 0;
 
-	if (init_fait == 0) {
+	if (changement_mode_timer1 == 0) {
 		init_timer1();
-		init_fait = 1;
+		changement_mode_timer1 = 1;
 	}
 	
 	LCD_init();
@@ -550,7 +594,10 @@ void init_int1(void) {
 }
 
 ISR(INT1_vect) {
-	if (mode != MODE_DEBUG) mode = 1-mode;
+	if (mode != MODE_DEBUG) {
+		mode = 1-mode;
+		changement_mode_timer1 = 0;
+	}
 	
 	if (mode == MODE_DEBUG) {
 		if (debug_mode > NOMBRE_MODES_DEBUG-1) debug_mode = 1;
@@ -611,11 +658,10 @@ void stop_timer1() {
 
 void init_timer1_meas() {
 	stop_timer1();
-
-	DDRD &= ~(1<<PD5); // On remet PD5 en entrée pour éviter que ça sorte au niveau des hauts parleurs
 	
-	TCCR1A = 0; // on avait TCCR1A != 0 juste au dessus donc on remet à 0
 	TCCR1B = (1<<CS11);
+	
+	DDRD &= ~(1<<PD5);
 }
 
 
@@ -662,19 +708,19 @@ void animation_demarrage(void) {
 	for (int i=0 ; i<3 ; i++) {
 		LCD_sendcmd(LIGNE2 | 5);
 		printf(".");
-		_delay_ms(300);
+		_delay_ms(200);
 		LCD_sendcmd(LIGNE2 | 5);
 		printf(" ");
 		
 		LCD_sendcmd(LIGNE2 | 7);
 		printf(".");
-		_delay_ms(300);
+		_delay_ms(200);
 		LCD_sendcmd(LIGNE2 | 7);
 		printf(" ");
 		
 		LCD_sendcmd(LIGNE2 | 9);
 		printf(".");
-		_delay_ms(300);
+		_delay_ms(200);
 		LCD_sendcmd(LIGNE2 | 9);
 		printf(" ");
 	}
@@ -684,19 +730,19 @@ void animation_chargement(void) {
 	for (int i=0 ; i<2 ; i++) {
 		LCD_sendcmd(LIGNE2 | 5);
 		printf(".");
-		_delay_ms(300);
+		_delay_ms(200);
 		LCD_sendcmd(LIGNE2 | 5);
 		printf(" ");
 		
 		LCD_sendcmd(LIGNE2 | 7);
 		printf(".");
-		_delay_ms(300);
+		_delay_ms(200);
 		LCD_sendcmd(LIGNE2 | 7);
 		printf(" ");
 		
 		LCD_sendcmd(LIGNE2 | 9);
 		printf(".");
-		_delay_ms(300);
+		_delay_ms(200);
 		LCD_sendcmd(LIGNE2 | 9);
 		printf(" ");
 	}
