@@ -7,14 +7,35 @@
 
 #define F_CPU 3686000UL
 
-
 #include <avr/io.h>
 #include <stdio.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
 
+// ********************************************************************************************************************************************* //
+// Sommaire :
 
-// ----- Define des constantes de fonction ----- //
+// ********* Section 1 : Presets  ************************************************************************************************************** //
+// ********* Section 2 : Prototypes ************************************************************************************************************ //
+// ********* Section 3 : Variables globales  *************************************************************************************************** //
+// ********* Section 4 : Main  ***************************************************************************************************************** //
+// ********* Section 5 : Fonctions primaires  ************************************************************************************************** //
+// ********* Section 6 : Bargraphe  ************************************************************************************************************ //
+// ********* Section 7 : Gestion des modes  **************************************************************************************************** //
+// ********* Section 8 : Interruptions  ******************************************************************************************************** //
+// ********* Section 9 : Timers  *************************************************************************************************************** //
+// ********* Section 10 : UI et autre  ********************************************************************************************************* //
+
+// ********************************************************************************************************************************************* //
+
+
+
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 1 : Définition des Constantes  ******************************************************************************************** //
+// ********************************************************************************************************************************************* //
 
 #define CLEAR_DISPLAY				0x01
 
@@ -47,8 +68,16 @@
 #define RW						0x01 // Ecrire ou lire la donnée (0 pour envoyer, 1 pour lire) - bit 1 du port c
 #define RS						0x02 // Savoir quelle donnee est echangée (RS = 0 si commande ou 1 si c'est un caractère) - bit 2 du port c
 
+// ********************************************************************************************************************************************* //
 
-		// ----- Liste des fonctions ----- //
+
+
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 2 : Prototypes ************************************************************************************************************ //
+// ********************************************************************************************************************************************* //
 		
 void LCD_init(void);
 void LCD_sendcmd(char cmd);
@@ -70,7 +99,6 @@ void init_int2(void);
 
 void init_timer1();
 void jouer_timer1(float freq);
-void stop_timer1();
 void init_timer1_meas();
 
 void init_timer0(void);
@@ -78,11 +106,17 @@ void jouer_timer0(float freq);
 void stop_timer0();
 
 void animation_demarrage(void);
-void animation_chargement(void);
+
+// ********************************************************************************************************************************************* //
 
 
 
-		// ----- Variables globales ----- //
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 3 : Variables globales et constantes associées  *************************************************************************** //
+// ********************************************************************************************************************************************* //
 
 volatile unsigned char mode = 0;
 
@@ -92,16 +126,13 @@ volatile unsigned char mode = 0;
 
 volatile unsigned char debug_mode = 0;
 volatile unsigned char debug_mode_test_valide = 0;
-volatile unsigned char changement_mode_timer1 = 0;
 
 #define NOMBRE_MODES_DEBUG 2 // ===== à changer en fonction du nombre de tests dans le menu =====
 
 #define DEBUG_TESTS_UNIT 1
 #define DEBUG_BARGRAPH 2
 
-
-volatile unsigned char choix_note = 0;
-
+volatile unsigned char changement_mode_timer1 = 0;
 
 volatile unsigned char front1 = 1;
 volatile unsigned int periode_clk;
@@ -111,66 +142,65 @@ volatile unsigned char mesure_terminee;
 
 char note_cible[6][5] = {"Mi3", "Si2", "Sol2", "Re2", "La1", "Mi1"};
 float freq_cible[6] = {329.6, 246.9, 196, 146.8, 110, 82.4};
+volatile unsigned char choix_note = 0;
+
+// ********************************************************************************************************************************************* //
 
 
 
-// ------------------------------------------------------ Main ------------------------------------------------------------- //
-// ------------------------------------------------------------------------------------------------------------------------- //
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 4 : Main  ***************************************************************************************************************** //
+// ********************************************************************************************************************************************* //
 
 void main(void) {
-	// _________________Initialisation du LCD_________________ //
+
+// ──────────── Partie 1 : Setup ───────────────────────────────────────── //
 	
 	LCD_init();
 	
-	
-	// _________________Setup_________________ //
-	
-		// ___Ports LCD___ //													// (le port C sert à envoyer des instructions d'envoi / lecture et le port A sert à envoyer la donnée)
-		
+		// ___Ports LCD___ //						// (le port C sert à envoyer des instructions d'envoi / lecture et le port A sert à envoyer la donnée)
 	DDRA = 0xFF;
 	DDRC = 0xFF;
+
+		//___Fonctions test___ //
 	//tests_unitaires();
 	//test_bargraph();
+
+		// ___Gestion printf___ //	
+	stdout = &donnee; 								// on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
 	
-	
-	// ___Gestion printf___ //	
-	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
-	
-	// ___Gestion INIT___ //
-	
+		// ___Gestion INIT___ //
 	init_int0();
 	init_int1();
 	init_int2();
 	sei();
 	
-	// ___Gestion TIMER___ //
-	
+		// ___Gestion TIMER___ //
 	init_timer0();
 	
 	// ___Gestion printf___ //
-	
-	stdout = &donnee; // on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
-	
-	animation_demarrage();
+	stdout = &donnee; 								// on dit au programme qu'on envoie le contenu de 'donnee' sur le PORT C (donc vers le LCD à la place du terminal)
+
+	//___Animation de démarrage__ //
+	animation_demarrage();							// on attend encore un peu le temps que l'utilisateur appuie ou non sur BP2 (pour entrer en mode debug)
 	
 	// ___Gestion activation DEBUG___ //
 	if ((PIND & (1<<PD2)) == 0) {
-		mode = 2;
-		
+		mode = MODE_DEBUG;
 		LCD_sendcmd(LIGNE1 | 3);
 		printf(("Mode DEBUG"));
-		
 		LCD_sendcmd(LIGNE2);
 		printf("Voir tests -->");
 	}
 	
+// ──────────── Partie 2 : Loop (boucle while) ─────────────────────────── //
 	
-	// _________________ Boucle While _________________ //
-	
-    while (1) 
-    {
+    while (1) {
 		switch (mode) {
-			
+
 			case MODE_MESURE:
 				if (mode != MODE_DEBUG) {
 					mode_MESURE();
@@ -190,12 +220,18 @@ void main(void) {
     }
 }
 
-// ------------------------------------------------------------------------------------------------------------------------- //
-// ------------------------------------------------------------------------------------------------------------------------- //
+// ********************************************************************************************************************************************* //
 
 
 
-		// ----- Initialisation du LCD ----- //
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 5 : Fonctions primaires  ************************************************************************************************** //
+// ********************************************************************************************************************************************* //
+
+// ──────────── Partie 1 : Initialisation du LCD ───────────────────────── //
 		
 void LCD_init(void) { // On se sert ici de la page 5 de la partie datasheet
 	
@@ -214,67 +250,52 @@ void LCD_init(void) { // On se sert ici de la page 5 de la partie datasheet
 	_delay_us(39);
 }
 
-
-
-
-		// ----- Envoyer une commande ----- //
+// ──────────── Partie 2 : Envoyer une commande ────────────────────────── //
 
 void LCD_sendcmd(char cmd) {
 	PORTC = 0x00;						// On met RS et RW à 0 car on envoie une commande
 	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
-									// On laisse le bit E du port c à 0 car on envoie une commande
+
 	PORTA = cmd;						// On envoi la donnée sur le port A
 	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
-	_delay_us(43);						// on attend le temps que l'écriture se termine
+	_delay_ms(1.53);					// on attend le temps que la commande demandant le plus de temps d'éxecution se termine
 }
 
-
-
-
-		// ----- Envoyer un caractère ----- //
+// ──────────── Partie 3 : Envoyer un caractère ────────────────────────── //
 
 void LCD_putchar(char c) {
-	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie une commande
+	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie un caractère
 	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
-								// On laisse le bit E du port c à 0 car on envoie une commande
+
 	PORTA = c;							// On envoi la donnée sur le port A
-	
 	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
 	
-	_delay_ms(1.573);						// on attend le temps que l'écriture se termine + le temps d'éxectution de la commande la plus lente (donc 43us + 1.53ms)
+	_delay_us(43);						// Délai d'éxecution
 }
 
-
-
-
-		// ----- Envoyer une chaine de caractères ----- //
+// ──────────── Partie 4 : Envoyer une chaine de caractères ────────────── //
 
 int LCD_putchars(char c, FILE *stream) {
-	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie une commande
-	PORTC |= (1 << E);					// On autorise l'envoi de la donnée
-	// On laisse le bit E du port c à 0 car on envoie une commande
+	PORTC = 0x00 | (1<< RS);			// On met RS à 1 et RW à 0 car on envoie un caractère
+
 	PORTA = c;							// On envoi la donnée sur le port A
 	PORTC = ~(1 << E);					// On ferme notre fenêtre d'envoi
 	
 	
-	_delay_us(43);
+	_delay_us(43);						// Délai d'éxecution
 	return 01; // 01 sera le code pour annoncer que la donnée a été envoyé
 }
 
-
-
-	
-
-		// ----- Envoyer une chaine de caractères ----- //
+// ──────────── Partie 5 : Tests unitaires ─────────────────────────────── //
 
 void tests_unitaires(void) {
 	
-	unsigned char caractere = 'A'; // 65 = A en code asquii
+	unsigned char caractere = 'A'; 		// 65 = A en code asquii
 	
 	LCD_init();
 	
-	while (caractere <= 'Z') { // 90 = Z en code asquii
-		if (caractere == 'Q') LCD_sendcmd(LIGNE2); // Juste après la 16e lettre de l'aplhabet, on passe à la ligne (le lcd peut afficher jusqu'à 16 lettres par ligne)
+	while (caractere <= 'Z') { 			// 90 = Z en code asquii
+		if (caractere == 'Q') LCD_sendcmd(LIGNE2); // Juste après la 16e lettre de l'aplhabet, on passe à la ligne (le LCD peut afficher jusqu'à 16 caractères par ligne)
 		LCD_putchar(caractere);
 		caractere++;
 		_delay_ms(500);
@@ -286,7 +307,7 @@ void tests_unitaires(void) {
 	printf("Accordeur 2026");
 	_delay_ms(1000);
 	
-	LCD_sendcmd(0x80 | 0x40 | 4); // Ligne 2 colone 4
+	LCD_sendcmd(0x80 | 0x40 | 4); 		// Ligne 2 colone 4
 	_delay_ms(1000);
 	
 	printf("Ou suis-je ?");
@@ -294,31 +315,39 @@ void tests_unitaires(void) {
 	_delay_ms(1500);
 }
 
+// ********************************************************************************************************************************************* //
 
 
 
-		// ----- Fonction bargraph ----- //
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 6 : Bargraphe  ************************************************************************************************************ //
+// ********************************************************************************************************************************************* //
+
+// ──────────── Partie 1 : Fonction bargraphe ──────────────────────────── //
 
 void bargaph (float freq_jouee, float freq_cible) {
 	
 	LCD_sendcmd(LIGNE2 | 7);
 	_delay_us(39);
-	printf("|");
+	printf("|");														// On place une barre verticale au milieu de la deuxième ligne
 	
 	float ecart = freq_jouee - freq_cible;
 		
 	if (ecart > 0.5) { // On met une petite marge parce qu'être parfaitement sur la bonne note est presque impossible
-		LCD_sendcmd(LIGNE2 | 8);
+		LCD_sendcmd(LIGNE2 | 8);										// on se place juste après la barre verticale
 		if (ecart <= 7) for (int i=0 ; i<ecart-0.5 ; i++) printf("+");
 		if (ecart > 7) printf("+>>");
 	}
 		
 	else if (ecart < -0.5) {
-		LCD_sendcmd(LIGNE2 | 6);
-		LCD_sendcmd(ENTRY_MODE_SET | DECREMENT);
-		if (ecart >= -7) for (int i=ecart-0.5 ; i<0 ; i++) printf("-");
+		LCD_sendcmd(LIGNE2 | 6);										// on se place juste avant la barre verticale
+		LCD_sendcmd(ENTRY_MODE_SET | DECREMENT);						// et on règle le LCD en mode DECREMENT (de droite à gauche)
+		if (ecart >= -7) for (int i=ecart-0.5 ; i<0 ; i++) printf("-");	// on enlève 0.5 pour l'arrondi
 		if (ecart < -7) printf("-<<"); // <<- à l'envers
-		LCD_sendcmd(ENTRY_MODE_SET | INCREMENT);
+		LCD_sendcmd(ENTRY_MODE_SET | INCREMENT);						// on remet le LCD en mode INCREMENT
 	}
 	
 	else {
@@ -327,120 +356,59 @@ void bargaph (float freq_jouee, float freq_cible) {
 	}
 }
 
-
-
-
-		// ----- Fonction test bargraph ----- //
+// ──────────── Partie 2 : Fonction test bargraphe ─────────────────────── //
 
 void test_bargraph(void) {
-	// ----- Test d'unité négatif :						325.6-329.6 = -4			L'afficheur doit mettre 4 signes -
-	LCD_sendcmd(CLEAR_DISPLAY);
+
+	float freq_test[9] = {325.6, 325, 322.6, 322.5, 333.6, 334.4, 336.6, 336.7, 329.6};
+
+	for (int i=0 ; i<9 ; i++) {
+		LCD_sendcmd(CLEAR_DISPLAY);
 	
-	_delay_ms(2); // d'après la datashee, il faut attendre au moins 1.53ms (on attendra ici 2ms)
-	bargaph(325.6, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:325.6");
+		_delay_ms(2); // d'après la datasheet, il faut attendre au moins 1.53ms (on attendra ici 2ms)
+		bargaph(freq_test[i], 329.6);
+		
+		LCD_sendcmd(LIGNE1);
+		printf("Fc:329.6 F:%f", freq_test[i]);
 	
 	_delay_ms(1500);
+	}
+
+	// ----- Test d'unité négatif :						325.6-329.6 = -4			L'afficheur doit mettre 4 signes -
 	
 	// ----- Test d'arrondi néatif :					325-329.6 = -4.6			L'afficheur doit mettre 5 signes -
-	LCD_sendcmd(CLEAR_DISPLAY);
-	
-	_delay_ms(2);
-	bargaph(325, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:325");
-	
-	_delay_ms(1500);
 	
 	// ----- Test de dépassement d'écran négatif :		322.6-329.6 = -7			L'afficheur doit mettre 7 signes -
-	LCD_sendcmd(CLEAR_DISPLAY);
 	
-	_delay_ms(2);
-	bargaph(322.6, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:322.6");
-	
-	_delay_ms(1500);
-	
-	// ----- Test de dépassement d'écran négatif :		322.5-329.6 = -7.1			L'afficheur doit afficher <<-
-	LCD_sendcmd(CLEAR_DISPLAY);
-	
-	_delay_ms(2);
-	bargaph(322.5, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:322.5");
-	
-	_delay_ms(1500);
+	// ----- Test de dépassement d'écran négatif :		322.5-329.6 = -7.1			L'afficheur doit indiquer <<-
 	
 	// ----- Test d'unité positif :						333.6-329.6 = 4				L'afficheur doit mettre 4 signes +
-	LCD_sendcmd(CLEAR_DISPLAY);
-	
-	_delay_ms(2);
-	bargaph(333.6, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:333.6");
-	
-	_delay_ms(1500);
 	
 	// ----- Test d'arrondi positif :					334.2-329.6 = 4.6			L'afficheur doit mettre 5 signes +
-	LCD_sendcmd(CLEAR_DISPLAY);
-	
-	_delay_ms(2);
-	bargaph(334.4, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:334.2");
-	
-	_delay_ms(1500);
 	
 	// ----- Test de dépassement d'écran positif :		336.6-329.6 = 7				L'afficheur doit mettre 7 signes +
-	LCD_sendcmd(CLEAR_DISPLAY);
 	
-	_delay_ms(2);
-	bargaph(336.6, 329.6);
+	// ----- Test de dépassement d'écran positif :		336.7-329.6 = 7.1			L'afficheur doit indiquer +>>
 	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:336.6");
-	
-	_delay_ms(1500);
-	
-	// ----- Test de dépassement d'écran positif :		336.7-329.6 = 7.1				L'afficheur doit afficher +>>
-	LCD_sendcmd(CLEAR_DISPLAY);
-	
-	_delay_ms(2);
-	bargaph(336.7, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:336.7");
-	
-	_delay_ms(1500);
-	
-	// ----- Test fréquence parfaite :					329.6-329.6 = 0				L'afficheur doit afficher o|o
-	LCD_sendcmd(CLEAR_DISPLAY);
-	
-	_delay_ms(2);
-	bargaph(329.6, 329.6);
-	
-	LCD_sendcmd(LIGNE1);
-	printf("Fc:329.6 F:329.6");
-	
-	_delay_ms(1500);
+	// ----- Test fréquence parfaite :					329.6-329.6 = 0				L'afficheur doit indiquer o|o
 }
 
+// ********************************************************************************************************************************************* //
 
 
 
-		// ----- Mode MESURE ----- //
+
+
+
+// ********************************************************************************************************************************************* //
+// ********* Section 7 : Gestion des modes  **************************************************************************************************** //
+// ********************************************************************************************************************************************* //
+
+// ──────────── Partie 1 : Mode MESURE ─────────────────────────────────── //
 		
 void mode_MESURE(void) {
 	
-			// On  init qu'une seule fois le timer 0 (evite les glitch et erreurs de mesures (oui c'est arrivé et oui ça a été corrigé))
+	// ----- Initialisation du timer ---- //			// On  init qu'une seule fois le timer 0 (evite les glitch et erreurs de mesures (oui c'est arrivé et oui ça a été corrigé))
 
 	if (changement_mode_timer1 == 0) {
 		init_timer1_meas();
@@ -449,20 +417,18 @@ void mode_MESURE(void) {
 	
 	unsigned int freq_mesuree = 0;
 	
-		
-	// Générer fréquence
+	// ----- Mesurer fréquence ---------- //
 	
-	float fc = freq_cible[choix_note]*1.5*100;
+	float fc = freq_cible[choix_note]*1.5*100;			// D'après la datasheet du filtre, nous avons fclk= fc * 100. De plus, nous voulons une fréquence de coupure comprise entre  F_fondamentale et F_harmonique2, donc entre F_fondamentale etF_fondamentale * 2. Nous ajoutons donc *1,5.
 	
 	jouer_timer0(fc);
 	
 	if (mesure_terminee == 1) {
-		freq_mesuree = F_CPU / (8*periode_clk);
+		freq_mesuree = F_CPU / (1*periode_clk);
 		mesure_terminee = 0;
 	}
 	
-	
-	// Affichage
+	// ----- Affichage ------------------ //
 	
 	LCD_init();
 	
@@ -470,17 +436,12 @@ void mode_MESURE(void) {
 	printf("(%s)", note_cible[choix_note]);
 	
 	LCD_sendcmd(LIGNE1);
-	printf("Freq %d", freq_mesuree); // le LCD ne prend pas en charge les float (on changera surement qvec la frequence mesuree
+	printf("Freq %d", freq_mesuree);
 	
 	bargaph(freq_mesuree, freq_cible[choix_note]); // afficher la fréquence mesurée
-	
 }
 
-
-
-
-
-		// ----- Mode MESURE ----- //
+// ──────────── Partie 2 : Mode SOUND ──────────────────────────────────── //
 		
 void mode_SOUND(void) {
 	
@@ -502,11 +463,7 @@ void mode_SOUND(void) {
 	jouer_timer1(freq_cible[choix_note]);
 }
 
-
-
-
-
-// ----- Mode DEBUG ----- //
+// ──────────── Partie 3 : Mode DEBUG ──────────────────────────────────── //
 
 void mode_DEBUG(void) {
 	
@@ -555,6 +512,7 @@ void mode_DEBUG(void) {
 	}
 }
 
+// ********************************************************************************************************************************************* //
 
 
 
@@ -563,11 +521,12 @@ void mode_DEBUG(void) {
 
 
 
-// ------------------------------------------------------ Gestion interruptions ------------------------------------------------------------- //
-// ------------------------------------------------------------------------------------------------------------------------------------------ //
 
+// ********************************************************************************************************************************************* //
+// ********* Section 8 : Interruptions  ******************************************************************************************************** //
+// ********************************************************************************************************************************************* //
 
-		// ----------- INIT 0 ----------- //
+// ──────────── Partie 1 : INT0 ────────────────────────────────────────── //
 
 void init_int0(void) {
 	DDRD &= ~(1<<PD2);
@@ -585,6 +544,7 @@ ISR(INT0_vect) {
 	if (mode == MODE_DEBUG) debug_mode_test_valide = 1- debug_mode_test_valide;
 }
 
+// ──────────── Partie 2 : INT1 ────────────────────────────────────────── //
 
 void init_int1(void) {
 	DDRD &= ~(1<<PD3);
@@ -603,9 +563,9 @@ ISR(INT1_vect) {
 		if (debug_mode > NOMBRE_MODES_DEBUG-1) debug_mode = 1;
 		else debug_mode++;
 	}
-	
-	
 }
+
+// ──────────── Partie 3 : INT2 ────────────────────────────────────────── //
 
 void init_int2(void) {
 	DDRB &= (~(1<<PB2));
@@ -615,30 +575,31 @@ void init_int2(void) {
 }
 
 ISR(INT2_vect) {
-	if (front1 == 1) {
+	if (front1 == 1) {			// si premier front, on remet le compteur TCNT1 à 0
 		TCNT1 = 0;
 		front1 = 0;
 	}
-	else {
+	else {						// si deuxième front, on récupère la valeur de TCNT1 et on indique que la mesure est terminée
 		periode_clk = TCNT1;
 		mesure_terminee = 1;
 		front1 = 1;
 	}
 }
 
+// ********************************************************************************************************************************************* //
 
 
 
 
 
-// --------------------------------------------------------- Gestion timers ----------------------------------------------------------------- //
-// ------------------------------------------------------------------------------------------------------------------------------------------ //
 
+// ********************************************************************************************************************************************* //
+// ********* Section 9 : Timers  *************************************************************************************************************** //
+// ********************************************************************************************************************************************* //
 
-		// ----------- TIMER 1 ----------- //
+// ──────────── Partie 1 : Timer 1 ─────────────────────────────────────── //
 		
 void init_timer1() {
-	stop_timer1();
 
 	DDRD |= (1<<PD5);
 	
@@ -650,23 +611,15 @@ void jouer_timer1(float freq) {
 	OCR1A = (F_CPU/(2*1*freq)-1) + 0.5;
 }
 
-void stop_timer1() {
-	OCR1A = 0;
-	TCCR1B = 0;
-	TCCR1A = 0;
-}
-
 void init_timer1_meas() {
-	stop_timer1();
-	
-	TCCR1B = (1<<CS11);
+
+	OCR1A = 0;
+	TCCR1B = (1<<CS10);
 	
 	DDRD &= ~(1<<PD5);
 }
 
-
-		// ----------- TIMER 0 ----------- //
-		
+// ──────────── Partie 2 : Timer 0 ─────────────────────────────────────── //
 
 void init_timer0() {
 	DDRB |= (1<<PB3);
@@ -684,14 +637,16 @@ void stop_timer0() {
 	TCCR0 &= (~(1<<CS00));
 }
 
+// ********************************************************************************************************************************************* //
 
 
 
 
 
 
-// --------------------------------------------------------- Gestion des animations---------------------------------------------------------- //
-// ------------------------------------------------------------------------------------------------------------------------------------------ //
+// ********************************************************************************************************************************************* //
+// ********* Section 10 : UI et autre  ********************************************************************************************************* //
+// ********************************************************************************************************************************************* //
 
 void animation_demarrage(void) {
 	LCD_sendcmd(CLEAR_DISPLAY);
@@ -722,3 +677,5 @@ void animation_demarrage(void) {
 	LCD_sendcmd(LIGNE2 | 9);
 
 }
+
+// ********************************************************************************************************************************************* //
